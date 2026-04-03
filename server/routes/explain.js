@@ -201,16 +201,16 @@ ${caveatNote}
     }
 
     if (!OPENROUTER_API_KEY) {
-      console.error("API KEY LOADED: FALSE");
-      return res.status(503).json({ error: 'OPENROUTER_API_KEY is not configured in environment' });
+      console.log("API KEY LOADED: FALSE");
+      return res.status(503).json({ error: 'OPENROUTER_API_KEY is not configured' });
     }
     console.log("API KEY LOADED: TRUE");
 
-    // Standardized request format as requested
+    // Corrected API Request Format as requested
     const response = await axios.post(
       "https://openrouter.ai/api/v1/chat/completions",
       {
-        model: "openai/gpt-3.5-turbo",
+        model: "mistralai/mistral-7b-instruct",
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage },
@@ -221,9 +221,9 @@ ${caveatNote}
       {
         headers: {
           Authorization: `Bearer ${OPENROUTER_API_KEY.trim()}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://moviemind-ai.vercel.app',
-          'X-Title': 'MovieMind AI',
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://movie-mind-ai-five.vercel.app",
+          "X-Title": "MovieMind AI"
         },
         timeout: 30000,
       }
@@ -252,7 +252,7 @@ ${caveatNote}
       },
     });
   } catch (error) {
-    // Standard error logging as requested
+    // Explicit Error Logging for Production Debugging
     console.error(error.response?.data || error.message);
     
     if (error.response) {
