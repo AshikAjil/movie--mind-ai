@@ -16,7 +16,6 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-// Enable comprehensive multi-domain CORS so Vercel can seamlessly fetch your Render API.
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
