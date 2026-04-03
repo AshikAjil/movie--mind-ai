@@ -4,7 +4,7 @@ import Movie from '../models/Movie.js';
 
 const router = express.Router();
 
-const MODEL = 'qwen/qwen3.6-plus:free';
+const MODEL = 'openrouter/free';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 console.log("[EXPLAIN] Route loaded successfully.");
