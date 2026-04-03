@@ -6,7 +6,7 @@ const router = express.Router();
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const CHAT_MODEL = 'openai/gpt-4o-mini';
+const CHAT_MODEL = 'google/gemini-2.0-flash-001';
 
 /**
  * Compute how well a movie matches the user's feed signals.
