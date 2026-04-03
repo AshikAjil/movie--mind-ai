@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 // Safe URL resolution to avoid Vercel trailing slash 404 bugs
+console.log("API URL:", import.meta.env.VITE_API_URL);
 const userUrl = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 const finalBaseUrl = userUrl.endsWith('/api') ? userUrl : (userUrl ? `${userUrl}/api` : '/api');
 
@@ -26,7 +27,13 @@ api.interceptors.request.use(
 
 // Response interceptor — normalize errors
 api.interceptors.response.use(
-  (response) => response.data,
+  (response) => {
+    // Prevent fatal render crashes if Vercel fallback serves index.html instead of a JSON API response
+    if (typeof response.data === 'string' && response.data.trim().toLowerCase().startsWith('<!doctype')) {
+      return Promise.reject(new Error("API returned HTML instead of JSON. Ensure VITE_API_URL is set correctly in Vercel."));
+    }
+    return response.data;
+  },
   (error) => {
     const message =
       error.response?.data?.error ||
