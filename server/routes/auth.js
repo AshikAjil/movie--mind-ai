@@ -24,6 +24,7 @@ export const authMiddleware = (req, res, next) => {
 // @route   POST /api/auth/register
 router.post('/register', async (req, res) => {
   try {
+    console.log(`[BACKEND] Validating Signup route hit for: ${req.body.email}`);
     const { name, email, password } = req.body;
 
     let user = await User.findOne({ email });

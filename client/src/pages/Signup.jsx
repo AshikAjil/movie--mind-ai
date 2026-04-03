@@ -22,6 +22,7 @@ export default function Signup({ onLoginSuccess }) {
     setError('');
 
     try {
+      console.log(`[FRONTEND] Firing api.post('/auth/register') for ${email}`);
       const data = await registerUser({ name, email, password });
       
       // Store token

@@ -1,8 +1,11 @@
 import axios from 'axios';
 
+// Safe URL resolution to avoid Vercel trailing slash 404 bugs
+const userUrl = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+const finalBaseUrl = userUrl.endsWith('/api') ? userUrl : (userUrl ? `${userUrl}/api` : '/api');
+
 const api = axios.create({
-  // Dynamically points to the live backend URL when deployed to production on Vercel
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: finalBaseUrl,
   timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
