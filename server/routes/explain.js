@@ -71,8 +71,13 @@ router.get('/debug', async (req, res) => {
       ai_response: testCall.data?.choices?.[0]?.message?.content
     });
   } catch (err) {
+    const key = process.env.OPENROUTER_API_KEY || "";
+    const maskedKey = key ? `${key.substring(0, 8)}...${key.substring(key.length - 4)}` : "MISSING";
+    
     res.status(err.response?.status || 500).json({
       status: "FAILED",
+      key_detected: !!key,
+      key_preview: maskedKey,
       error: err.message,
       openrouter_response: err.response?.data
     });
