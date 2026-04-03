@@ -41,6 +41,44 @@ function computeTastefit(movie, feedSignals = {}) {
 }
 
 // POST /api/explain — Generate AI explanation or honest warning
+router.get('/debug', async (req, res) => {
+  try {
+    const key = process.env.OPENROUTER_API_KEY || "";
+    const maskedKey = key ? `${key.substring(0, 8)}...${key.substring(key.length - 4)}` : "MISSING";
+    
+    console.log(`[DEBUG] Testing key: ${maskedKey}`);
+    
+    const testCall = await axios.post(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        model: "openai/gpt-3.5-turbo",
+        messages: [{ role: "user", content: "hi" }]
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${key.trim()}`,
+          "Content-Type": "application/json"
+        },
+        timeout: 10000
+      }
+    );
+
+    res.json({
+      status: "SUCCESS",
+      key_detected: !!key,
+      key_preview: maskedKey,
+      openrouter_status: testCall.status,
+      ai_response: testCall.data?.choices?.[0]?.message?.content
+    });
+  } catch (err) {
+    res.status(err.response?.status || 500).json({
+      status: "FAILED",
+      error: err.message,
+      openrouter_response: err.response?.data
+    });
+  }
+});
+
 router.post('/', async (req, res) => {
   try {
     const { movieId, movieTitle, preferences = {}, feedSignals = {} } = req.body;
@@ -158,26 +196,29 @@ ${caveatNote}
     }
 
     if (!OPENROUTER_API_KEY) {
-      return res.status(503).json({ error: 'OPENROUTER_API_KEY is not configured' });
+      console.error("API KEY LOADED: FALSE");
+      return res.status(503).json({ error: 'OPENROUTER_API_KEY is not configured in environment' });
     }
+    console.log("API KEY LOADED: TRUE");
 
+    // Standardized request format as requested
     const response = await axios.post(
-      OPENROUTER_CHAT_URL,
+      "https://openrouter.ai/api/v1/chat/completions",
       {
-        model: CHAT_MODEL,
+        model: "openai/gpt-3.5-turbo",
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage },
         ],
-        max_tokens: 200,
         temperature: 0.7,
+        max_tokens: 300,
       },
       {
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY.trim()}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': 'http://localhost:5000',
-          'X-Title': 'Movie AI Recommender',
+          'HTTP-Referer': 'https://moviemind-ai.vercel.app',
+          'X-Title': 'MovieMind AI',
         },
         timeout: 30000,
       }
@@ -206,15 +247,16 @@ ${caveatNote}
       },
     });
   } catch (error) {
+    // Standard error logging as requested
+    console.error(error.response?.data || error.message);
+    
     if (error.response) {
       const { status, data } = error.response;
-      console.error('[OPENROUTER ERROR]:', data || status);
       return res.status(status).json({
         error: `AI API Error ${status}`,
         details: data?.error?.message || JSON.stringify(data),
       });
     }
-    console.error('Explain error:', error.response?.data || error.message);
     res.status(500).json({ error: "AI service failed" });
   }
 });
