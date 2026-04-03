@@ -5,6 +5,8 @@ import Movie from '../models/Movie.js';
 const router = express.Router();
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+console.log("[BACKEND-EXPLAIN] API KEY LOADED:", !!process.env.OPENROUTER_API_KEY);
+
 const OPENROUTER_CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const CHAT_MODEL = 'google/gemini-2.0-flash-001';
 
@@ -206,14 +208,14 @@ ${caveatNote}
   } catch (error) {
     if (error.response) {
       const { status, data } = error.response;
-      console.error('OpenRouter Chat Error:', status, data);
+      console.error('[OPENROUTER ERROR]:', data || status);
       return res.status(status).json({
         error: `AI API Error ${status}`,
         details: data?.error?.message || JSON.stringify(data),
       });
     }
-    console.error('Explain error:', error.message);
-    res.status(500).json({ error: error.message });
+    console.error('Explain error:', error.response?.data || error.message);
+    res.status(500).json({ error: "AI service failed" });
   }
 });
 
