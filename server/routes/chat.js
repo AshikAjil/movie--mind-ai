@@ -8,7 +8,8 @@ import { authMiddleware } from './auth.js';
 
 const router = express.Router();
 
-const MODEL = 'mistralai/mistral-7b-instruct:free'; // Fast model (Free Tier)
+const MODEL = 'meta-llama/llama-3-8b-instruct'; // Primary Model
+const FALLBACK_MODEL = 'openchat/openchat-3.5'; // Fast Fallback
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 console.log("[CHAT] Route loaded successfully.");
@@ -122,31 +123,53 @@ router.post('/', authMiddleware, async (req, res) => {
 
       console.log(`[CHAT] Calling OpenRouter for query: "${message.substring(0, 50)}..."`);
 
-      const response = await axios.post(
-        OPENROUTER_URL,
-        {
-          model: MODEL,
-          messages: [
-            {
-              role: 'user', 
-              content: `INSTRUCTIONS: ${instructions}\n\nCONVERSATION HISTORY:\n${JSON.stringify(llmHistory)}\n\nUSER MESSAGE: ${message}`
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 150, 
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${trimmedKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://movie-mind-ai-system.vercel.app', 
-            'X-Title': 'MovieMind AI',
-          },
-          timeout: 25000,
-        }
-      );
+      // Fallback model logic
+      const modelsToTry = [MODEL, FALLBACK_MODEL];
+      let response;
+      let lastError;
 
-      console.log(`[CHAT] OpenRouter responded: ${response.status}`);
+      for (const currentModel of modelsToTry) {
+        try {
+          console.log(`[CHAT] Attempting with model: ${currentModel}`);
+          response = await axios.post(
+            OPENROUTER_URL,
+            {
+              model: currentModel,
+              messages: [
+                {
+                  role: 'user', 
+                  content: `INSTRUCTIONS: ${instructions}\n\nCONVERSATION HISTORY:\n${JSON.stringify(llmHistory)}\n\nUSER MESSAGE: ${message}`
+                }
+              ],
+              temperature: 0.7,
+              max_tokens: 150, 
+            },
+            {
+              headers: {
+                'Authorization': `Bearer ${trimmedKey}`,
+                'Content-Type': 'application/json',
+                'HTTP-Referer': 'https://movie-mind-ai-system.vercel.app', 
+                'X-Title': 'MovieMind AI',
+              },
+              timeout: 25000,
+            }
+          );
+          break; // Success
+        } catch (err) {
+          lastError = err;
+          if (err.response?.status === 404) {
+            console.error(`[CHAT] Invalid model selected: ${currentModel}`);
+          }
+          console.warn(`[CHAT] Model ${currentModel} failed, trying fallback...`);
+          // Continue to next model
+        }
+      }
+
+      if (!response) {
+        throw lastError;
+      }
+
+      console.log(`[CHAT] OpenRouter responded: ${response.status} (Model: ${response.data?.model || MODEL})`);
 
       const aiReply = response.data?.choices?.[0]?.message?.content ||
         "I'm having trouble thinking right now. Please try again!";
