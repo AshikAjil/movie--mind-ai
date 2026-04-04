@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 
 const router = express.Router();
 
-const MODEL = 'mistralai/mistral-7b-instruct'; // Fast model
+const MODEL = 'mistralai/mistral-7b-instruct:free'; // Fast model (Free Tier)
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 console.log("[EXPLAIN] Route loaded successfully.");
