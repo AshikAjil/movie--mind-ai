@@ -73,12 +73,22 @@ export default function MovieDetails({ user }) {
   }, [movie, user, feed]);
 
   const handleExplain = async () => {
-    if (explanation || !movie || !user) return;
+    if (!movie || !user) return;
+    
+    // If the explanation is already loaded, just play the voice!
+    if (explanation) {
+      speakText(explanation, movie.language);
+      return;
+    }
+
     setExplaining(true);
     try {
       const feedSignals = deriveFeedSignals(feed);
       const data = await explainMovie(movie._id, movie.title, user.preferences, feedSignals);
       setExplanation(data.explanation);
+      
+      // Auto-play the voice output after fetching
+      speakText(data.explanation, movie.language);
     } catch (err) {
       console.error(err);
     } finally {
