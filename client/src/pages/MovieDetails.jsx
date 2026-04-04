@@ -61,6 +61,17 @@ export default function MovieDetails({ user }) {
     fetchData();
   }, [id]);
 
+  // Pre-generate explanation in background
+  useEffect(() => {
+    if (movie && user && feed && !explanation) {
+      // Quiet background fetch to cache the explanation
+      const feedSignals = deriveFeedSignals(feed);
+      explainMovie(movie._id, movie.title, user.preferences, feedSignals)
+        .catch(err => console.log('Preload explanation error:', err))
+        .finally(() => console.log('Preload explanation finished'));
+    }
+  }, [movie, user, feed]);
+
   const handleExplain = async () => {
     if (explanation || !movie || !user) return;
     setExplaining(true);

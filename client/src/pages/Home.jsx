@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Film, Star, Filter, ChevronDown, Clapperboard, AlertCircle, Heart, Sparkles } from 'lucide-react';
 import MovieCard from '../components/MovieCard.jsx';
 import SearchBar from '../components/SearchBar.jsx';
@@ -137,11 +137,13 @@ export default function Home({ preferences }) {
   };
 
   // Filter featured movies
-  const filteredFeatured = featuredMovies.filter((m) => {
-    const langOk = langFilter === 'All' || m.language === langFilter;
-    const genreOk = genreFilter === 'All' || m.genres?.includes(genreFilter);
-    return langOk && genreOk;
-  });
+  const filteredFeatured = useMemo(() => {
+    return featuredMovies.filter((m) => {
+      const langOk = langFilter === 'All' || m.language === langFilter;
+      const genreOk = genreFilter === 'All' || m.genres?.includes(genreFilter);
+      return langOk && genreOk;
+    });
+  }, [featuredMovies, langFilter, genreFilter]);
 
   const moviesToShow = searchResults !== null ? searchResults : filteredFeatured;
   const visibleMovies = moviesToShow.slice(0, visibleCount);
@@ -149,8 +151,8 @@ export default function Home({ preferences }) {
   const isSearchMode = searchResults !== null;
 
   // My Feed tab — all liked movies
-  const likedMovieIds = new Set((serverFeed.liked || []).map((m) => m._id));
-  const dislikedMovieIds = new Set((serverFeed.disliked || []).map((m) => m._id));
+  const likedMovieIds = useMemo(() => new Set((serverFeed.liked || []).map((m) => m._id)), [serverFeed.liked]);
+  const dislikedMovieIds = useMemo(() => new Set((serverFeed.disliked || []).map((m) => m._id)), [serverFeed.disliked]);
 
   // The serverFeed already returns populated full movie objects with correct _ids and posters.
   const allLikedMovies = serverFeed.liked || [];
@@ -245,8 +247,9 @@ export default function Home({ preferences }) {
             </div>
 
             {searchLoading ? (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem', gap: '1rem' }}>
                 <div className="spinner" style={{ width: '50px', height: '50px' }} />
+                <p style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Loading movies...</p>
               </div>
             ) : searchResults?.length === 0 ? (
               <div className="empty-state">

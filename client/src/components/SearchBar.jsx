@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Search, X, Loader2 } from 'lucide-react';
 
 export default function SearchBar({ onSearch, loading = false, initialValue = '' }) {
@@ -16,9 +16,20 @@ export default function SearchBar({ onSearch, loading = false, initialValue = ''
     [query, loading, onSearch]
   );
 
+  useEffect(() => {
+    const trimmed = query.trim();
+    const timeoutId = setTimeout(() => {
+       // We call onSearch even if empty to clear results when user deletes text
+       // except when it's just the initial render load (we can check if it changed)
+       onSearch(trimmed);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [query, onSearch]);
+
   const handleClear = () => {
     setQuery('');
-    onSearch('');
+    // onSearch('') will be handled by the debounce effect
     inputRef.current?.focus();
   };
 

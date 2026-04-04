@@ -105,7 +105,7 @@ export default function ExplanationBox({ movie, preferences, feed }) {
         {loading ? (
           <>
             <Loader2 size={14} className="animate-spin" />
-            Analyzing taste...
+            Generating AI explanation...
           </>
         ) : (
           <>

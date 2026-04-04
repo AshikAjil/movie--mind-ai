@@ -1,13 +1,19 @@
 import express from 'express';
 import axios from 'axios';
 import Movie from '../models/Movie.js';
+import AICache from '../models/AICache.js';
+import jwt from 'jsonwebtoken';
+
 
 const router = express.Router();
 
-const MODEL = 'openrouter/free';
+const MODEL = 'mistralai/mistral-7b-instruct'; // Fast model
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 console.log("[EXPLAIN] Route loaded successfully.");
+
+// Map to track active explanation requests to prevent duplicate OpenRouter calls
+const activeRequests = new Map();
 
 // --- Debug endpoint: GET /api/explain/debug ---
 router.get('/debug', async (req, res) => {
@@ -56,63 +62,79 @@ router.get('/debug', async (req, res) => {
 // --- Main endpoint: POST /api/explain ---
 router.post('/', async (req, res) => {
   try {
-    const { movieId, movieTitle, preferences = {}, feedSignals = {} } = req.body;
+    const { movieId, movieTitle, preferences = {}, feedSignals = {}, query = '' } = req.body;
 
     if (!movieId && !movieTitle) {
       return res.status(400).json({ error: 'movieId or movieTitle is required' });
     }
 
+    let userId = 'anonymous';
+    const token = req.header('Authorization')?.split(' ')[1];
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supersecretfallbackkey123');
+        userId = decoded.userId;
+      } catch (err) {
+        // Ignore token errors for caching
+      }
+    }
+
+    // Improve Caching: Use cache key: movieId + userId + query
+    const cacheKeyForDb = { movieId: movieId || String(movieTitle), userId, query };
+    const requestKey = `${cacheKeyForDb.movieId}_${userId}_${query}`;
+
+    // 1. Check if an identical request is already running (Prevent duplicate calls)
+    if (activeRequests.has(requestKey)) {
+      console.log(`[EXPLAIN] Joined existing active request for: ${requestKey}`);
+      try {
+        const explanation = await activeRequests.get(requestKey);
+        return res.json({
+          movie: { id: cacheKeyForDb.movieId, title: movieTitle || 'Movie' },
+          explanation
+        });
+      } catch (err) {
+        // If the shared request fails, fall through to try again
+      }
+    }
+
+    // 2. Check DB Cache
+    const cached = await AICache.findOne(cacheKeyForDb);
+    if (cached) {
+      console.log(`[EXPLAIN] Cache hit for key: ${requestKey}`);
+      return res.json({
+        movie: { id: cacheKeyForDb.movieId, title: movieTitle || 'Movie' },
+        explanation: cached.explanation
+      });
+    }
+
     // Fetch the movie from DB
     let movie;
     if (movieId) {
-      movie = await Movie.findById(movieId).select('-embedding');
+      movie = await Movie.findById(movieId).select('title genres description overview'); // Only essential fields
     } else {
       movie = await Movie.findOne({
         title: { $regex: movieTitle, $options: 'i' },
-      }).select('-embedding');
+      }).select('title genres description overview'); // Only essential fields
     }
 
     if (!movie) {
       return res.status(404).json({ error: 'Movie not found in database' });
     }
 
-    // Build user taste profile from all available data
+    // Build user taste profile from minimal data
     const profileParts = [];
-    if (preferences.likedMovies?.length > 0) {
-      profileParts.push(`Previously enjoyed: ${preferences.likedMovies.slice(0, 5).join(', ')}.`);
-    }
-    if (preferences.genres?.length > 0) {
-      profileParts.push(`Preferred genres: ${preferences.genres.join(', ')}.`);
-    }
-    if (preferences.language) {
-      profileParts.push(`Preferred language: ${preferences.language}.`);
-    }
-    if (feedSignals.likedGenres?.length > 0) {
-      profileParts.push(`Liked genres from activity: ${feedSignals.likedGenres.join(', ')}.`);
-    }
-    if (feedSignals.dislikedGenres?.length > 0) {
-      profileParts.push(`Disliked genres: ${feedSignals.dislikedGenres.join(', ')}.`);
-    }
-    const userProfile = profileParts.length > 0 ? profileParts.join('\n') : 'General movie enthusiast.';
+    if (preferences.genres?.length > 0) profileParts.push(`Likes: ${preferences.genres.join(', ')}.`);
+    if (feedSignals.likedGenres?.length > 0) profileParts.push(`Plays: ${feedSignals.likedGenres.join(', ')}.`);
+    const userProfile = profileParts.length > 0 ? profileParts.join(' ') : 'General enthusiast.';
 
-    // Build the single unified prompt
-    const prompt = `You are a personalized movie recommendation assistant.
-Your goal is to explain to a specific user why they would (or would not) enjoy a specific movie.
-Be HONEST. If the movie conflicts with their preferences, politely warn them.
-Keep the tone friendly and engaging. Limit your response to 2-3 concise sentences.
-NEVER make up facts — only use the provided movie info.
+    // Optimize Prompt: Reduce input size, avoid long descriptions
+    const desc = (movie.description || movie.overview || 'No description').substring(0, 100);
+    const prompt = `You are a personalized movie recommendation assistant. Explain in 1-2 short sentences why the user would or wouldn't like this movie. Be honest.
+Movie: ${movie.title} (${(movie.genres || []).join(', ')})
+Desc: ${desc}
+User: ${userProfile}
 
---- MOVIE DATA ---
-Title: ${movie.title}
-Genres: ${(movie.genres || []).join(', ') || 'N/A'}
-Language: ${movie.language || 'N/A'}
-Year: ${movie.year || 'N/A'}
-Description: ${(movie.description || movie.overview || 'No description available').substring(0, 500)}
-
---- USER TASTE PROFILE ---
-${userProfile}
-
-Based on the above, provide an honest, personalized 2-3 sentence explanation of whether this user should watch "${movie.title}".`;
+Explanation:`;
 
     // Get fresh API key
     const apiKey = process.env.OPENROUTER_API_KEY || "";
@@ -123,35 +145,64 @@ Based on the above, provide an honest, personalized 2-3 sentence explanation of 
 
     console.log(`[EXPLAIN] Calling OpenRouter for "${movie.title}"...`);
 
-    const response = await axios.post(
-      OPENROUTER_URL,
-      {
-        model: MODEL,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-        max_tokens: 300,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey.trim()}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://movie-mind-ai-five.vercel.app",
-          "X-Title": "MovieMind AI"
+    // Define the async fetch operation
+    const fetchExplanation = async () => {
+      const response = await axios.post(
+        OPENROUTER_URL,
+        {
+          model: MODEL,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.6,
+          max_tokens: 100, // Limit Output: Keep responses short and concise
         },
-        timeout: 25000,
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey.trim()}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://movie-mind-ai-five.vercel.app",
+            "X-Title": "MovieMind AI"
+          },
+          timeout: 25000,
+        }
+      );
+
+      console.log(`[EXPLAIN] OpenRouter responded: ${response.status}`);
+
+      const explanation = response.data?.choices?.[0]?.message?.content;
+      if (!explanation) {
+        throw new Error('No explanation received from AI model');
       }
-    );
 
-    console.log(`[EXPLAIN] OpenRouter responded: ${response.status}`);
+      // Save to cache before resolving
+      try {
+        await AICache.create({
+          movieId: cacheKeyForDb.movieId,
+          userId,
+          query,
+          explanation: explanation.trim()
+        });
+      } catch (cacheErr) {
+        console.error('[EXPLAIN] Failed to save to cache:', cacheErr.message);
+      }
 
-    const explanation = response.data?.choices?.[0]?.message?.content;
-    if (!explanation) {
-      throw new Error('No explanation received from AI model');
+      return explanation.trim();
+    };
+
+    // Store promise in active requests to prevent duplicate calls
+    const explanationPromise = fetchExplanation();
+    activeRequests.set(requestKey, explanationPromise);
+
+    let finalExplanation;
+    try {
+      finalExplanation = await explanationPromise;
+    } finally {
+      // Clean up the active request once fulfilled or rejected
+      activeRequests.delete(requestKey);
     }
 
     res.json({
       movie: { id: movie._id, title: movie.title },
-      explanation: explanation.trim()
+      explanation: finalExplanation
     });
 
   } catch (error) {

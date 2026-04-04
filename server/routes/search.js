@@ -42,7 +42,7 @@ router.post('/', async (req, res) => {
 
     // Fetch all movies WITH embeddings for comparison
     const movies = await Movie.find({ embedding: { $exists: true, $not: { $size: 0 } } })
-      .select('+embedding')
+      .select('embedding _id title poster year language genres tmdbId isFeatured')
       .lean();
 
     if (movies.length === 0) {

@@ -102,7 +102,7 @@ router.get('/', async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const [movies, total] = await Promise.all([
-      Movie.find(filter).select('-embedding').skip(skip).limit(parseInt(limit)).sort({ year: -1 }),
+      Movie.find(filter).select('_id title poster year language genres matchPercentage isFeatured').sort({ year: -1 }).skip(skip).limit(parseInt(limit)).lean(),
       Movie.countDocuments(filter),
     ]);
 
@@ -123,10 +123,10 @@ router.get('/featured', authMiddleware, async (req, res) => {
   try {
     // 1. Fetch movies separately for each language in parallel
     const [ml, ta, hi, en] = await Promise.all([
-      Movie.find({ language: 'Malayalam' }).select('-embedding').limit(10),
-      Movie.find({ language: 'Tamil' }).select('-embedding').limit(10),
-      Movie.find({ language: 'Hindi' }).select('-embedding').limit(10),
-      Movie.find({ language: 'English' }).select('-embedding').limit(10),
+      Movie.find({ language: 'Malayalam' }).select('_id title poster year language genres matchPercentage isFeatured').limit(10).lean(),
+      Movie.find({ language: 'Tamil' }).select('_id title poster year language genres matchPercentage isFeatured').limit(10).lean(),
+      Movie.find({ language: 'Hindi' }).select('_id title poster year language genres matchPercentage isFeatured').limit(10).lean(),
+      Movie.find({ language: 'English' }).select('_id title poster year language genres matchPercentage isFeatured').limit(10).lean(),
     ]);
 
     // 2. Combine all arrays
@@ -200,7 +200,7 @@ router.get('/similar/:id', async (req, res) => {
         { language: movie.language }
       ]
     })
-    .select('-embedding')
+    .select('_id title poster year language genres matchPercentage isFeatured')
     .limit(10)
     .lean();
 

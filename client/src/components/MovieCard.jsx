@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import ExplanationBox from './ExplanationBox.jsx';
 
 const FALLBACK_COLORS = [
   'from-purple-900 to-indigo-900',
@@ -11,20 +10,17 @@ const FALLBACK_COLORS = [
   'from-emerald-900 to-teal-900',
 ];
 
-export default function MovieCard({
+const MovieCard = ({
   movie,
-  preferences,
-  showExplain = true,
   selectable = false,
   selected = false,
   onSelect,
   // Feed props
-  feed,
   isLiked = false,
   isDisliked = false,
   onLike,
   onDislike,
-}) {
+}) => {
   const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -32,7 +28,7 @@ export default function MovieCard({
   const [bounceBtn, setBounceBtn] = useState(null); // 'like' | 'dislike'
 
   useEffect(() => {
-    console.log('Movie Card Data:', movie);
+    // console.log('Movie Card Data:', movie);
   }, [movie]);
 
   const posterSrc = imgError
@@ -142,11 +138,6 @@ export default function MovieCard({
           ))}
         </div>
 
-        {/* AI Explanation */}
-        {showExplain && !selectable && (
-          <ExplanationBox movie={movie} preferences={preferences} feed={feed} />
-        )}
-
         {/* Like / Dislike Bar */}
         {!selectable && (
           <div className="like-dislike-bar">
@@ -192,3 +183,5 @@ function getGenreEmoji(genre) {
   };
   return map[genre] || '🎬';
 }
+
+export default React.memo(MovieCard);
