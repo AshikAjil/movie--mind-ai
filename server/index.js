@@ -15,6 +15,15 @@ import chatRouter from './routes/chat.js';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Security: Check for required API keys at startup
+const openRouterKey = process.env.OPENROUTER_API_KEY;
+if (!openRouterKey) {
+  console.warn("⚠️  [WARNING] OPENROUTER_API_KEY is not defined in environment variables!");
+} else {
+  const maskedKey = `${openRouterKey.substring(0, 8)}...${openRouterKey.substring(openRouterKey.length - 4)}`;
+  console.log(`✅ [INFO] OpenRouter API Key detected: ${maskedKey}`);
+}
+
 // Middleware
 app.use(cors({ origin: '*' }));
 app.use(express.json());

@@ -13,6 +13,17 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 console.log("[CHAT] Route loaded successfully.");
 
+// --- Info endpoint: GET /api/chat ---
+router.get('/', (req, res) => {
+  res.json({ 
+    message: "Movie AI Chatbot endpoint is active.", 
+    usage: "Send a POST request with message and optional history to chat with the AI assistant.",
+    endpoints: {
+      post_chat: "POST /api/chat"
+    }
+  });
+});
+
 const activeChatRequests = new Map();
 
 /**
@@ -103,13 +114,13 @@ router.post('/', authMiddleware, async (req, res) => {
       const llmHistory = history.slice(-3); // Optimize history sent
 
       // Get fresh API key
-      const apiKey = process.env.OPENROUTER_API_KEY || "";
-      if (!apiKey) {
-        console.error("[CHAT] API KEY IS MISSING");
+      const trimmedKey = (process.env.OPENROUTER_API_KEY || "").trim();
+      if (!trimmedKey) {
+        console.error("[CHAT] API KEY IS MISSING OR EMPTY");
         throw new Error('OPENROUTER_API_KEY is not configured');
       }
 
-      console.log(`[CHAT] Calling OpenRouter...`);
+      console.log(`[CHAT] Calling OpenRouter for query: "${message.substring(0, 50)}..."`);
 
       const response = await axios.post(
         OPENROUTER_URL,
@@ -117,18 +128,18 @@ router.post('/', authMiddleware, async (req, res) => {
           model: MODEL,
           messages: [
             {
-              role: 'user',
+              role: 'user', 
               content: `INSTRUCTIONS: ${instructions}\n\nCONVERSATION HISTORY:\n${JSON.stringify(llmHistory)}\n\nUSER MESSAGE: ${message}`
             }
           ],
           temperature: 0.7,
-          max_tokens: 150, // Limit Output
+          max_tokens: 150, 
         },
         {
           headers: {
-            Authorization: `Bearer ${apiKey.trim()}`,
+            'Authorization': `Bearer ${trimmedKey}`,
             'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://movie-mind-ai-five.vercel.app',
+            'HTTP-Referer': 'https://movie-mind-ai-system.vercel.app', 
             'X-Title': 'MovieMind AI',
           },
           timeout: 25000,

@@ -15,12 +15,26 @@ console.log("[EXPLAIN] Route loaded successfully.");
 // Map to track active explanation requests to prevent duplicate OpenRouter calls
 const activeRequests = new Map();
 
+// --- Info endpoint: GET /api/explain ---
+router.get('/', (req, res) => {
+  res.json({ 
+    message: "Movie AI Explanation endpoint is active.", 
+    usage: "Send a POST request with movieId or movieTitle to get an AI-generated explanation.",
+    endpoints: {
+      post_explain: "POST /api/explain",
+      get_debug: "GET /api/explain/debug"
+    }
+  });
+});
+
 // --- Debug endpoint: GET /api/explain/debug ---
 router.get('/debug', async (req, res) => {
   try {
-    const key = process.env.OPENROUTER_API_KEY || "";
+    const key = (process.env.OPENROUTER_API_KEY || "").trim();
     const maskedKey = key ? `${key.substring(0, 8)}...${key.substring(key.length - 4)}` : "MISSING";
-
+    
+    console.log(`[DEBUG] Testing OpenRouter connectivity with key: ${maskedKey}`);
+    
     const testCall = await axios.post(
       OPENROUTER_URL,
       {
@@ -29,10 +43,10 @@ router.get('/debug', async (req, res) => {
       },
       {
         headers: {
-          Authorization: `Bearer ${key.trim()}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://movie-mind-ai-five.vercel.app",
-          "X-Title": "MovieMind AI"
+          'Authorization': `Bearer ${key}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://movie-mind-ai-system.vercel.app', // Using a more generic one if not sure
+          'X-Title': 'MovieMind AI'
         },
         timeout: 15000
       }
@@ -46,15 +60,18 @@ router.get('/debug', async (req, res) => {
       ai_response: testCall.data?.choices?.[0]?.message?.content
     });
   } catch (err) {
-    const key = process.env.OPENROUTER_API_KEY || "";
+    const key = (process.env.OPENROUTER_API_KEY || "").trim();
     const maskedKey = key ? `${key.substring(0, 8)}...${key.substring(key.length - 4)}` : "MISSING";
-    console.error("[EXPLAIN DEBUG ERROR]", err.response?.data || err.message);
+    
+    const errorDetails = err.response?.data || err.message;
+    console.error("[EXPLAIN DEBUG ERROR]", errorDetails);
+    
     res.status(err.response?.status || 500).json({
       status: "FAILED",
       key_detected: !!key,
       key_preview: maskedKey,
       error: err.message,
-      openrouter_response: err.response?.data
+      openrouter_response: errorDetails
     });
   }
 });
@@ -147,20 +164,25 @@ Explanation:`;
 
     // Define the async fetch operation
     const fetchExplanation = async () => {
+      const trimmedKey = (process.env.OPENROUTER_API_KEY || "").trim();
+      if (!trimmedKey) {
+        throw new Error('OPENROUTER_API_KEY is missing or empty');
+      }
+
       const response = await axios.post(
         OPENROUTER_URL,
         {
           model: MODEL,
-          messages: [{ role: 'user', content: prompt }],
+          messages: [{ role: 'user', content: prompt }], // Note: Some models prefer role 'user' over 'system' for instructions in free tier
           temperature: 0.6,
-          max_tokens: 100, // Limit Output: Keep responses short and concise
+          max_tokens: 150, 
         },
         {
           headers: {
-            Authorization: `Bearer ${apiKey.trim()}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://movie-mind-ai-five.vercel.app",
-            "X-Title": "MovieMind AI"
+            'Authorization': `Bearer ${trimmedKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://movie-mind-ai-system.vercel.app', 
+            'X-Title': 'MovieMind AI'
           },
           timeout: 25000,
         }
