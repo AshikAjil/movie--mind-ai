@@ -8,28 +8,17 @@ export default function SearchBar({ onSearch, loading = false, initialValue = ''
   const handleSubmit = useCallback(
     (e) => {
       e?.preventDefault();
-      const trimmed = query.trim();
-      if (trimmed && !loading) {
-        onSearch(trimmed);
-      }
+      if (loading) return;
+      onSearch(query.trim());
     },
     [query, loading, onSearch]
   );
 
-  useEffect(() => {
-    const trimmed = query.trim();
-    const timeoutId = setTimeout(() => {
-       // We call onSearch even if empty to clear results when user deletes text
-       // except when it's just the initial render load (we can check if it changed)
-       onSearch(trimmed);
-    }, 300);
 
-    return () => clearTimeout(timeoutId);
-  }, [query, onSearch]);
 
   const handleClear = () => {
     setQuery('');
-    // onSearch('') will be handled by the debounce effect
+    onSearch('');
     inputRef.current?.focus();
   };
 
@@ -80,7 +69,7 @@ export default function SearchBar({ onSearch, loading = false, initialValue = ''
         id="search-submit-btn"
         className="btn-primary search-btn"
         onClick={handleSubmit}
-        disabled={loading || !query.trim()}
+        disabled={loading}
       >
         {loading ? 'Searching...' : 'Search'}
       </button>
