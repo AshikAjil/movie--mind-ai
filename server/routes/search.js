@@ -5,7 +5,7 @@ import { cosineSimilarity, similarityToPercentage } from '../utils/similarity.js
 
 const router = express.Router();
 
-// POST /api/search — Semantic search using embeddings + feed signal boosting
+// POST /api/search — Hybrid search (Keyword filter + Semantic fallback)
 router.post('/', async (req, res) => {
   try {
     const { query, preferences = {}, feedSignals = {} } = req.body;
@@ -15,7 +15,50 @@ router.post('/', async (req, res) => {
     }
 
     const trimmedQuery = query.trim();
+    const lowerQuery = trimmedQuery.toLowerCase();
+    
+    // --- PHASE 1: Keyword Search ---
+    const stopwords = ['movie', 'film', 'show', 'a', 'an', 'the', 'is', 'in', 'about'];
+    const words = lowerQuery.split(/\s+/).filter(w => w && !stopwords.includes(w));
 
+    // Construct Keyword Query
+    // Note: To match genres/language exactly with options 'i', we build a regex
+    let keywordResults = [];
+    if (words.length > 0) {
+      // Map words to regexes for case-insensitive matching in text arrays/strings
+      const wordsRegex = new RegExp(words.join('|'), 'i');
+      
+      // Some simple capitalization logic for genres/language to help $in match correctly,
+      // but $regex works better for partial match and case insensitivity.
+      // E.g., user types "Malayalam" or "malayalam"
+      const capitalizedWords = words.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+      
+      keywordResults = await Movie.find({
+        $or: [
+          { title: { $regex: lowerQuery, $options: 'i' } },
+          { title: { $regex: wordsRegex } },
+          { language: { $regex: wordsRegex } },
+          { genres: { $in: capitalizedWords } } // Or could use regex for genres if possible
+        ]
+      })
+      .select('-embedding')
+      .limit(20)
+      .lean();
+      
+      // Further filter: if query is exactly "Malayalam romantic movie", 
+      // we might get too many fuzzy hits. For now, trust the $or logic.
+    }
+
+    if (keywordResults.length >= 3) {
+      // We got enough keyword matches, skip semantic search
+      return res.json({
+        results: keywordResults,
+        query: trimmedQuery,
+        count: keywordResults.length
+      });
+    }
+
+    // --- PHASE 2: Semantic Fallback ---
     // Build enriched query with user preferences + liked genres if available
     let enrichedQuery = trimmedQuery;
     if (preferences.genres?.length > 0) {
@@ -34,9 +77,13 @@ router.post('/', async (req, res) => {
       queryEmbedding = await getEmbedding(enrichedQuery);
     } catch (embErr) {
       console.error('Embedding error:', embErr.message);
-      return res.status(503).json({
-        error: 'Embedding service unavailable. Please check OPENROUTER_API_KEY.',
-        details: embErr.message,
+      
+      // If we completely fail embedding, we can still perhaps return whatever keyword hits we had
+      return res.json({
+        results: keywordResults,
+        query: trimmedQuery,
+        count: keywordResults.length,
+        message: 'Semantic search unavailable, showing partial keyword matches'
       });
     }
 
@@ -47,8 +94,10 @@ router.post('/', async (req, res) => {
 
     if (movies.length === 0) {
       return res.json({
-        results: [],
-        message: 'No movies with embeddings found. Please run /api/movies/seed first.',
+        results: keywordResults,
+        query: trimmedQuery,
+        count: keywordResults.length,
+        message: 'No movies with embeddings found.',
       });
     }
 
