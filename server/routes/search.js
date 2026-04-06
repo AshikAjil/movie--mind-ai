@@ -18,35 +18,62 @@ router.post('/', async (req, res) => {
     const lowerQuery = trimmedQuery.toLowerCase();
     
     // --- PHASE 1: Keyword Search ---
-    const stopwords = ['movie', 'film', 'show', 'a', 'an', 'the', 'is', 'in', 'about'];
-    const words = lowerQuery.split(/\s+/).filter(w => w && !stopwords.includes(w));
+    const stopwords = ['movie', 'movies', 'film', 'films', 'show', 'shows', 'a', 'an', 'the', 'is', 'in', 'about', 'some', 'good', 'best', 'top', 'of'];
+    let words = lowerQuery.split(/\s+/).filter(w => w && !stopwords.includes(w));
 
-    // Construct Keyword Query
-    // Note: To match genres/language exactly with options 'i', we build a regex
+    // Map common genre variations
+    const genreMap = {
+      'romantic': 'romance',
+      'scary': 'horror',
+      'funny': 'comedy',
+      'sci-fi': 'sci-fi',
+      'scifi': 'sci-fi',
+      'science fiction': 'sci-fi',
+      'actions': 'action',
+      'comedies': 'comedy'
+    };
+    words = words.map(w => genreMap[w] || w);
+
+    const deduplicate = (movieList) => {
+      const unique = [];
+      const seenTitles = new Set();
+      const seenTmdbIds = new Set();
+      for (const m of movieList) {
+        const normTitle = m.title.toLowerCase().trim();
+        const hasTmdbId = m.tmdbId !== undefined && m.tmdbId !== null;
+        if ((hasTmdbId && seenTmdbIds.has(m.tmdbId)) || seenTitles.has(normTitle)) continue;
+        unique.push(m);
+        seenTitles.add(normTitle);
+        if (hasTmdbId) seenTmdbIds.add(m.tmdbId);
+        if (unique.length >= 20) break;
+      }
+      return unique;
+    };
+
     let keywordResults = [];
     if (words.length > 0) {
-      // Map words to regexes for case-insensitive matching in text arrays/strings
-      const wordsRegex = new RegExp(words.join('|'), 'i');
-      
-      // Some simple capitalization logic for genres/language to help $in match correctly,
-      // but $regex works better for partial match and case insensitivity.
-      // E.g., user types "Malayalam" or "malayalam"
-      const capitalizedWords = words.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
-      
-      keywordResults = await Movie.find({
+      const andConditions = words.map(word => {
+        return {
+          $or: [
+            { title: { $regex: word, $options: 'i' } },
+            { language: { $regex: word, $options: 'i' } },
+            { genres: { $regex: word, $options: 'i' } }
+          ]
+        };
+      });
+
+      const rawKeywordResults = await Movie.find({
         $or: [
-          { title: { $regex: lowerQuery, $options: 'i' } },
-          { title: { $regex: wordsRegex } },
-          { language: { $regex: wordsRegex } },
-          { genres: { $in: capitalizedWords } } // Or could use regex for genres if possible
+          // Exact title match gets highest priority
+          { title: { $regex: `^${trimmedQuery}$`, $options: 'i' } },
+          { $and: andConditions }
         ]
       })
       .select('-embedding')
-      .limit(20)
+      .limit(40) // fetch extra to allow room for deduplication
       .lean();
       
-      // Further filter: if query is exactly "Malayalam romantic movie", 
-      // we might get too many fuzzy hits. For now, trust the $or logic.
+      keywordResults = deduplicate(rawKeywordResults);
     }
 
     if (keywordResults.length >= 3) {
