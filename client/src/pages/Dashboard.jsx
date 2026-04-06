@@ -8,10 +8,13 @@ import {
   History,
   Activity,
   Layers,
+  ArrowLeft
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { getProfileAnalysis } from '../services/api.js';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -41,6 +44,15 @@ export default function Dashboard() {
 
   return (
     <div className="container fade-in" style={{ paddingBottom: '5rem', paddingTop: '2rem' }}>
+      <button 
+        className="btn-ghost" 
+        onClick={() => navigate('/')} 
+        style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.9rem' }}
+      >
+        <ArrowLeft size={16} />
+        Back to Home
+      </button>
+
       <div style={{ marginBottom: '3rem' }}>
         <h1 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '0.5rem' }}>Your Movie Taste Analysis</h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>Personalized insights based on your interactions.</p>
