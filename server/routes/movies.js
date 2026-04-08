@@ -130,15 +130,9 @@ router.get('/featured', authMiddleware, async (req, res) => {
     ]);
 
     // 2. Combine all arrays
-    const combined = [...ml, ...ta, ...hi, ...en];
+    let results = [...ml, ...ta, ...hi, ...en];
 
-    // 3. Shuffle results randomly
-    let results = combined.sort(() => Math.random() - 0.5);
-
-    // 4. Return top 40 mixed movies
-    results = results.slice(0, 40);
-
-    // Personalization logic: match percentage
+    // Personalization logic: match percentage & consistency
     if (req.user) {
       const user = await User.findById(req.user.userId);
       if (user) {
@@ -149,8 +143,16 @@ router.get('/featured', authMiddleware, async (req, res) => {
             matchPercentage: calculateMatchScore(doc, user.preferences)
           };
         });
+        // Sort descending by matchPercentage
+        results.sort((a, b) => (b.matchPercentage || 0) - (a.matchPercentage || 0));
       }
+    } else {
+      // Ensure consistency: No randomness, sort by year descending if no user
+      results.sort((a, b) => b.year - a.year);
     }
+
+    // Return top 40 movies after sorting
+    results = results.slice(0, 40);
 
     res.json({ movies: results, count: results.length });
   } catch (error) {
