@@ -147,11 +147,11 @@ router.post('/', async (req, res) => {
     // Fetch the movie from DB
     let movie;
     if (movieId) {
-      movie = await Movie.findById(movieId).select('title genres description overview'); // Only essential fields
+      movie = await Movie.findById(movieId).select('title genres overview language'); // Only essential fields
     } else {
       movie = await Movie.findOne({
         title: { $regex: movieTitle, $options: 'i' },
-      }).select('title genres description overview'); // Only essential fields
+      }).select('title genres overview language'); // Only essential fields
     }
 
     if (!movie) {
@@ -160,18 +160,34 @@ router.post('/', async (req, res) => {
 
     // Build user taste profile from minimal data
     const profileParts = [];
-    if (preferences.genres?.length > 0) profileParts.push(`Likes: ${preferences.genres.join(', ')}.`);
-    if (feedSignals.likedGenres?.length > 0) profileParts.push(`Plays: ${feedSignals.likedGenres.join(', ')}.`);
-    const userProfile = profileParts.length > 0 ? profileParts.join(' ') : 'General enthusiast.';
+    if (preferences.genres?.length > 0) profileParts.push(`Liked genres: ${preferences.genres.join(', ')}`);
+    if (preferences.likedMovies?.length > 0) profileParts.push(`Liked movies: ${preferences.likedMovies.join(', ')}`);
+    if (preferences.dislikedMovies?.length > 0) profileParts.push(`Disliked movies: ${preferences.dislikedMovies.join(', ')}`);
+    if (feedSignals.likedGenres?.length > 0) profileParts.push(`Recently played genres: ${feedSignals.likedGenres.join(', ')}`);
+    const userProfile = profileParts.length > 0 ? profileParts.join('. ') : 'General enthusiast';
 
     // Optimize Prompt: Reduce input size, avoid long descriptions
-    const desc = (movie.description || movie.overview || 'No description').substring(0, 100);
-    const prompt = `You are a personalized movie recommendation assistant. Explain in 1-2 short sentences why the user would or wouldn't like this movie. Be honest.
-Movie: ${movie.title} (${(movie.genres || []).join(', ')})
-Desc: ${desc}
-User: ${userProfile}
+    const desc = (movie.overview || 'No description').substring(0, 300);
+    const prompt = `Write a conversational, personalized movie review based on the User Profile.
+Keep it strictly under 6 sentences total. Do NOT use any headings, bold text, bullet points, asterisks, or labels.
 
-Explanation:`;
+Write EXACTLY 5 short single-sentence paragraphs separated by blank lines, following this sequence:
+1. An engaging hook sentence about the movie.
+2. A 1-sentence brief story summary (no spoilers).
+3. Relate it to the user's liked genres and movies. Explain why it matches their taste, or politely warn them if it's a mismatch.
+4. Highlight lead actors or standout performances.
+5. Final verdict (clear recommendation to watch or maybe skip).
+
+Tone: Conversational, human-like, slightly persuasive but honest, no generic AI tone.
+
+Movie: ${movie.title}
+Genres: ${(movie.genres || []).join(', ')}
+Language: ${movie.language || 'Unknown'}
+Overview: ${desc}
+
+User Profile: ${userProfile}
+
+Review:`;
 
     // Get fresh API key
     const apiKey = process.env.OPENROUTER_API_KEY || "";
