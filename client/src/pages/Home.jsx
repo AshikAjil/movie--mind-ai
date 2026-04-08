@@ -185,8 +185,8 @@ export default function Home({ preferences }) {
         </div>
 
         <h1 className="hero-title">
-          Find Your Next<br />
-          <span className="gradient-text">Favorite Movie</span>
+          Find Your Next Movie<br />
+          <span className="gradient-text">with Personalized Reviews</span>
         </h1>
         <p className="hero-subtitle">
           Describe what you want to watch in plain language — our AI fetches your taste.
