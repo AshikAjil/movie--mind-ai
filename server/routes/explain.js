@@ -168,15 +168,15 @@ router.post('/', async (req, res) => {
 
     // Optimize Prompt: Reduce input size, avoid long descriptions
     const desc = (movie.overview || 'No description').substring(0, 300);
-    const prompt = `Write a conversational, personalized movie review based on the User Profile.
-Keep it strictly under 6 sentences total. Do NOT use any headings, bold text, bullet points, asterisks, or labels.
+    const prompt = `Write a conversational, personalized, and detailed movie review based on the User Profile.
+Do NOT use any headings, bold text, bullet points, asterisks, or labels. 
 
-Write EXACTLY 5 short single-sentence paragraphs separated by blank lines, following this sequence:
-1. An engaging hook sentence about the movie.
-2. A 1-sentence brief story summary (no spoilers).
-3. Relate it to the user's liked genres and movies. Explain why it matches their taste, or politely warn them if it's a mismatch.
-4. Highlight lead actors or standout performances.
-5. Final verdict (clear recommendation to watch or maybe skip).
+Write EXACTLY 5 cohesive paragraphs separated by blank lines, following this sequence:
+1. An engaging hook to draw the reader in.
+2. A detailed story summary spanning a few sentences (no spoilers).
+3. Relate it deeply to the user's liked genres and movies. Explain thoroughly why it matches their taste, or politely warn them if it's a mismatch.
+4. Highlight lead actors and discuss standout performances in detail.
+5. Final verdict with a clear, detailed recommendation to watch or maybe skip.
 
 Tone: Conversational, human-like, slightly persuasive but honest, no generic AI tone.
 
@@ -219,7 +219,7 @@ Review:`;
               model: currentModel,
               messages: [{ role: 'user', content: prompt }],
               temperature: 0.6,
-              max_tokens: 150, 
+              max_tokens: 350,
             },
             {
               headers: {
