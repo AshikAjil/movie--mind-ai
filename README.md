@@ -2,6 +2,8 @@
 
 A production-ready MERN + AI movie recommendation app using **OpenRouter embeddings** for semantic search and **GPT-4o-mini** for personalized AI explanations.
 
+Link: https://movie-mind-ai-five.vercel.app/
+
 ## 🧱 Tech Stack
 
 | Layer | Technology |
