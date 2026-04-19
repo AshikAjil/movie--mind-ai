@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 
 const router = express.Router();
 
-const MODEL = 'meta-llama/llama-3-8b-instruct'; // Primary Model
+const MODEL = 'meta-llama/llama-3-8b-invalid'; // Primary Model
 const FALLBACK_MODEL = 'openchat/openchat-3.5'; // Fast Fallback
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
