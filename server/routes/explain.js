@@ -4,7 +4,6 @@ import Movie from '../models/Movie.js';
 import AICache from '../models/AICache.js';
 import jwt from 'jsonwebtoken';
 
-
 const router = express.Router();
 
 const MODEL = 'meta-llama/llama-3-8b-instruct'; // Primary Model
@@ -18,8 +17,8 @@ const activeRequests = new Map();
 
 // --- Info endpoint: GET /api/explain ---
 router.get('/', (req, res) => {
-  res.json({ 
-    message: "Movie AI Explanation endpoint is active.", 
+  res.json({
+    message: "Movie AI Explanation endpoint is active.",
     usage: "Send a POST request with movieId or movieTitle to get an AI-generated explanation.",
     endpoints: {
       post_explain: "POST /api/explain",
@@ -147,11 +146,11 @@ router.post('/', async (req, res) => {
     // Fetch the movie from DB
     let movie;
     if (movieId) {
-      movie = await Movie.findById(movieId).select('title genres overview language'); // Only essential fields
+      movie = await Movie.findById(movieId).select('title genres overview language cast'); // Added cast field
     } else {
       movie = await Movie.findOne({
         title: { $regex: movieTitle, $options: 'i' },
-      }).select('title genres overview language'); // Only essential fields
+      }).select('title genres overview language cast'); // Added cast field
     }
 
     if (!movie) {
@@ -239,7 +238,7 @@ Review:`;
               model: currentModel,
               messages: [{ role: 'user', content: prompt }],
               temperature: 0.6,
-              max_tokens: 250,
+              max_tokens: 600, // Increased to allow complete reviews
             },
             {
               headers: {
