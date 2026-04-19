@@ -177,14 +177,14 @@ router.post('/', async (req, res) => {
     if (feedSignals.likedGenres?.length > 0) profileParts.push(`Recently played genres: ${feedSignals.likedGenres.join(', ')}`);
     const userProfile = profileParts.length > 0 ? profileParts.join('. ') : 'General enthusiast';
 
-    const prompt = `You are a movie review assistant. Your task is to write a conversational, factual correct and personalized review based ONLY on the User Profile and the information provided below.
+    const prompt = `You are a movie review assistant. Your task is to write a conversational, factually correct, and highly personalized review based on the User Profile and the movie information provided below.
 
-CRITICAL RULES:
-- Use ONLY the movie title, genres, language, and overview given below.
-- Do NOT add any plot details, characters, or genre information that is not explicitly stated in the overview or genres.
-- If the overview is missing or very short, state that limited information is available and focus on genre and user preferences.
-- Never invent actor names, character names, or events.
-- If you cannot confirm a detail from the provided context, write "The provided information does not specify this detail."
+GUIDELINES:
+- Use the movie title, genres, language, and overview as your factual foundation.
+- You may express personal opinions, emotional reactions, and subjective connections to the user's preferences.
+- Do NOT invent specific plot events, character names, or cast members that are not mentioned in the overview.
+- If the overview is missing or very short, you may rely more on genre and user preferences, but state that details are limited.
+- You are encouraged to be expressive, engaging, and user-specific in your language.
 
 User preferences:
 ${userProfile}
@@ -195,16 +195,14 @@ Genres: ${(movie.genres || []).join(', ')}
 Language: ${movie.language || 'Unknown'}
 Overview: ${desc}
 
-Now write a conversational, personalized review of maximum 250 words (2-3 paragraphs) that:
-1. Gives an engaging hook to draw the reader in.
-2. Summarizes the plot using ONLY the overview (no extra details and no spoilers).
-3. Explains how the movie matches or does not match the user's liked genres, based strictly on the listed genres.
-4. Mentions any lead actors and standout performance if they appear in the overview (otherwise, skip).
-5. Ends with a clear recommendation to watch or skip the movie.
+Now write a conversational, personalized review (maximum 250 words, 2-3 paragraphs) that:
+1. Starts with an engaging hook that speaks directly to the user's taste.
+2. Summarizes the plot using the overview (no spoilers), but you can add your own enthusiastic or critical spin.
+3. Explains why the movie does or does not fit the user's liked genres, using specific examples from the overview or your own reasoning.
+4. If lead actors or standout performances are mentioned in the overview, highlight them; otherwise, you may skip or comment generally on acting quality based on genre expectations.
+5. Ends with a clear, personalized recommendation to watch or skip.
 
-Do NOT use headings, bullet points, or asterisks. 
-
-Tone: Conversational, human-like, slightly persuasive but honest, no generic AI tone.
+Tone: Conversational, human-like, slightly persuasive, honest, and tailored to the user. Avoid generic AI phrases.
 
 Review:`;
 
