@@ -157,7 +157,19 @@ router.post('/', async (req, res) => {
     if (!movie) {
       return res.status(404).json({ error: 'Movie not found in database' });
     }
-
+    
+    // --- Confidence check for metadata quality ---
+    let desc = (movie.overview || 'No description').substring(0, 300);
+    let metadataConfidence = "high";
+    if (!movie.overview || movie.overview.length < 50) {
+      metadataConfidence = "low";
+      console.log(`[EXPLAIN] Low confidence for "${movie.title}": overview too short.`);
+      desc = "Limited information available. " + desc;
+    } else if ((movie.genres || []).length === 0) {
+      metadataConfidence = "low";
+      console.log(`[EXPLAIN] Low confidence for "${movie.title}": no genres.`);
+    }
+    
     // Build user taste profile from minimal data
     const profileParts = [];
     if (preferences.genres?.length > 0) profileParts.push(`Liked genres: ${preferences.genres.join(', ')}`);
@@ -166,26 +178,34 @@ router.post('/', async (req, res) => {
     if (feedSignals.likedGenres?.length > 0) profileParts.push(`Recently played genres: ${feedSignals.likedGenres.join(', ')}`);
     const userProfile = profileParts.length > 0 ? profileParts.join('. ') : 'General enthusiast';
 
-    // Optimize Prompt: Reduce input size, avoid long descriptions
-    const desc = (movie.overview || 'No description').substring(0, 300);
-    const prompt = `Write a conversational, personalized, and detailed movie review based on the User Profile.
-Do NOT use any headings, bold text, bullet points, asterisks, or labels. 
+    const prompt = `You are a movie review assistant. Your task is to write a conversational, factual correct and personalized review based ONLY on the User Profile and the information provided below.
 
-Write EXACTLY 5 cohesive paragraphs separated by blank lines, following this sequence:
-1. An engaging hook to draw the reader in.
-2. A detailed story summary spanning a few sentences (no spoilers).
-3. Relate it deeply to the user's liked genres and movies. Explain thoroughly why it matches their taste, or politely warn them if it's a mismatch.
-4. Highlight lead actors and discuss standout performances in detail.
-5. Final verdict with a clear, detailed recommendation to watch or maybe skip.
+CRITICAL RULES:
+- Use ONLY the movie title, genres, language, and overview given below.
+- Do NOT add any plot details, characters, or genre information that is not explicitly stated in the overview or genres.
+- If the overview is missing or very short, state that limited information is available and focus on genre and user preferences.
+- Never invent actor names, character names, or events.
+- If you cannot confirm a detail from the provided context, write "The provided information does not specify this detail."
 
-Tone: Conversational, human-like, slightly persuasive but honest, no generic AI tone.
+User preferences:
+${userProfile}
 
-Movie: ${movie.title}
+Movie information:
+Title: ${movie.title}
 Genres: ${(movie.genres || []).join(', ')}
 Language: ${movie.language || 'Unknown'}
 Overview: ${desc}
 
-User Profile: ${userProfile}
+Now write a conversational, personalized review of maximum 250 words (2-3 paragraphs) that:
+1. Gives an engaging hook to draw the reader in.
+2. Summarizes the plot using ONLY the overview (no extra details and no spoilers).
+3. Explains how the movie matches or does not match the user's liked genres, based strictly on the listed genres.
+4. Mentions any lead actors and standout performance if they appear in the overview (otherwise, skip).
+5. Ends with a clear recommendation to watch or skip the movie.
+
+Do NOT use headings, bullet points, or asterisks. 
+
+Tone: Conversational, human-like, slightly persuasive but honest, no generic AI tone.
 
 Review:`;
 
@@ -219,7 +239,7 @@ Review:`;
               model: currentModel,
               messages: [{ role: 'user', content: prompt }],
               temperature: 0.6,
-              max_tokens: 350,
+              max_tokens: 250,
             },
             {
               headers: {
